@@ -45,8 +45,6 @@ import logging
 from django.views.decorators.http import require_POST
 from django.db.models import Avg, Count
 from django.views.decorators.csrf import csrf_exempt
-from django.core.paginator import Paginator
-
 
 
 
@@ -282,7 +280,7 @@ def registro(request):
             messages.error(request, "El usuario ya existe")
             return render(request, 'login/registro.html')
 
-        rol_default = roles.objects.get(IdRol=3)
+        rol_default = roles.objects.get(IdRol=2)
         nuevo_usuario = usuario(
             PrimerNombre=request.POST.get('PrimerNombre').strip(),
             OtrosNombres=request.POST.get('OtrosNombres').strip(),
@@ -610,35 +608,13 @@ def borrarusuario(request, id_usuario):
     usuario_obj.delete()
     return redirect(f'{reverse("crudUsuarios")}?page={page}')
 
-
 def crudUsuarios(request):
     usuarios_list = usuario.objects.filter(idRol=2).order_by('-IdUsuario')
-    paginator = Paginator(usuarios_list, 5)  # 5 por página
+    
     page_number = request.GET.get('page', 1)
+    paginator = Paginator(usuarios_list, 5)
     page_obj = paginator.get_page(page_number)
-
-    # Intentamos obtener un rango "elidido" (3.2+). Si no está disponible, usamos page_range normal.
-    try:
-        page_range = paginator.get_elided_page_range(number=page_obj.number, on_each_side=1, on_ends=1)
-    except AttributeError:
-        page_range = paginator.page_range
-
-    # Preservar otros parámetros GET (por ejemplo filtros). Sacamos page si existe.
-    params = request.GET.copy()
-    if 'page' in params:
-        params.pop('page')
-    # Construimos un fragmento base para agregar al href (si hay más params)
-    base_qs = params.urlencode()
-    if base_qs:
-        base_qs = base_qs + '&'   # quedará "otro=1&" y luego añadimos page=X
-
-    return render(request, 'crud/usuarios.html', {
-        'page_obj': page_obj,
-        'page_range': page_range,
-        'base_qs': base_qs,
-        'total_usuarios': usuarios_list.count(),  # opcional, para debugging en la plantilla
-    })
-
+    return render(request, 'crud/usuarios.html', {'page_obj': page_obj})
 #endregion
 
 #region domiciliario
