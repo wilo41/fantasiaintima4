@@ -45,6 +45,8 @@ import logging
 from django.views.decorators.http import require_POST
 from django.db.models import Avg, Count
 from django.views.decorators.csrf import csrf_exempt
+from django.core.paginator import Paginator
+
 
 
 
@@ -88,7 +90,7 @@ def insertarcategorias(request):
                 messages.error(request, error)
                 return redirect("listadocategorias")
             
-              # limite de 7 categorias
+            # limite de 7 categorias
             if categoria.objects.count() >= 7:
                 messages.error(request, "No se pueden registrar más de 7 categorías.")
                 return redirect("listadocategorias")
@@ -608,12 +610,35 @@ def borrarusuario(request, id_usuario):
     usuario_obj.delete()
     return redirect(f'{reverse("crudUsuarios")}?page={page}')
 
+
 def crudUsuarios(request):
     usuarios_list = usuario.objects.filter(idRol=2).order_by('-IdUsuario')
+    paginator = Paginator(usuarios_list, 5)  # 5 por página
     page_number = request.GET.get('page', 1)
-    paginator = Paginator(usuarios_list, 5)
     page_obj = paginator.get_page(page_number)
-    return render(request, 'crud/usuarios.html', {'page_obj': page_obj})
+
+    # Intentamos obtener un rango "elidido" (3.2+). Si no está disponible, usamos page_range normal.
+    try:
+        page_range = paginator.get_elided_page_range(number=page_obj.number, on_each_side=1, on_ends=1)
+    except AttributeError:
+        page_range = paginator.page_range
+
+    # Preservar otros parámetros GET (por ejemplo filtros). Sacamos page si existe.
+    params = request.GET.copy()
+    if 'page' in params:
+        params.pop('page')
+    # Construimos un fragmento base para agregar al href (si hay más params)
+    base_qs = params.urlencode()
+    if base_qs:
+        base_qs = base_qs + '&'   # quedará "otro=1&" y luego añadimos page=X
+
+    return render(request, 'crud/usuarios.html', {
+        'page_obj': page_obj,
+        'page_range': page_range,
+        'base_qs': base_qs,
+        'total_usuarios': usuarios_list.count(),  # opcional, para debugging en la plantilla
+    })
+
 #endregion
 
 #region domiciliario
